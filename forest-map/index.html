@@ -1,0 +1,208 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kin-Salna Forest Map</title>
+<style>
+:root { color-scheme: dark; --fg:#e7e7e7; --bg:#0d0d0f; --muted:#9aa0a6; --accent:#a88cff; --grid:#222; }
+*{box-sizing:border-box} body{margin:0;font:16px/1.5 ui-monospace,Consolas,monospace;background:var(--bg);color:var(--fg)}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.wrapper{max-width:980px;margin:auto;padding:16px}
+.btn{display:inline-block;padding:8px 12px;border:1px solid #2a2a30;border-radius:8px}
+.axis{display:flex;justify-content:space-between}
+pre.map{white-space:pre; font:14px/1.05 ui-monospace,Consolas,monospace; background:#0a0a0c; padding:10px; border-radius:12px; border:1px solid var(--grid); overflow:auto; max-height:70vh}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.legend .key{display:flex;align-items:center;gap:6px}
+.legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;outline:1px solid #444}
+a.sel{ color:#ff5f5f !important; font-weight:700 } /* selected glyph = RED */
+.dim{ color:#8aa; }
+.controls{display:flex;gap:8px;align-items:center;margin:6px 0}
+</style>
+</head><body>
+<div class="wrapper">
+  <a class="btn" href="../index.html">← Return</a>
+  <h1>Kin-Salna Forest Map <small id="subtitle"></small></h1>
+
+  <div class="legend">
+    <span class="key"><span class="sw" style="background:#a88cff"></span><small>Creatures</small></span>
+    <span class="key"><span class="sw" style="background:#ff5f5f"></span><small>Selected</small></span>
+    <span class="key"><span class="sw" style="background:#20304a"></span><small>Background</small></span>
+  </div>
+
+  <div class="axis"><span id="lonMin" class="dim"></span><span id="lonMax" class="dim"></span></div>
+  <pre class="map" id="map" role="img" aria-label="Kin-Salna Forest Map"></pre>
+  <div class="axis"><span id="latMin" class="dim"></span><span id="latMax" class="dim"></span></div>
+
+  <div class="controls">
+    <button id="toggle" class="btn" type="button">⏸️ Pause</button>
+    <small id="fps" class="dim"></small>
+  </div>
+</div>
+
+<script>
+(async function(){
+  async function loadJSON(path){ const r=await fetch(path,{cache:"no-store"}); if(!r.ok) throw new Error("Load "+path+" "+r.status); return r.json(); }
+  const $=(s,r=document)=>r.querySelector(s);
+  const linkToGuide=(id)=>`../field-guide/index.html?id=${encodeURIComponent(id)}`;
+  const getQuery=(k)=>new URLSearchParams(location.search).get(k);
+
+  const data = await loadJSON("../data/entries.json");
+  const selectedId = getQuery("id") || "";
+  localStorage.setItem("sornlai_selected", selectedId); // mirror selection for guide
+
+  const W=72,H=24, TICK_MS=180, PAD=0.02;
+  const lats=data.map(e=>+e.coords?.[0]).filter(Number.isFinite);
+  const lons=data.map(e=>+e.coords?.[1]).filter(Number.isFinite);
+  const latMin=Math.min(...lats)-0.05, latMax=Math.max(...lats)+0.05;
+  const lonMin=Math.min(...lons)-0.05, lonMax=Math.max(...lons)+0.05;
+
+  $("#lonMin").textContent=`${lonMin.toFixed(2)}°`; $("#lonMax").textContent=`${lonMax.toFixed(2)}°`;
+  $("#latMin").textContent=`${latMin.toFixed(2)}°`; $("#latMax").textContent=`${latMax.toFixed(2)}°`;
+  $("#subtitle").textContent=`lat ${latMin.toFixed(2)}→${latMax.toFixed(2)} | lon ${lonMin.toFixed(2)}→${lonMax.toFixed(2)}`;
+
+  const glyph=(g)=>({"Pearl-Weaver":"◊","Memory-Gardener":"*","Way-Finder":"o"}[g]||"+");
+  const toXY=(lat,lon)=>({ x:Math.round(((lon-lonMin)/(lonMax-lonMin))*(W-1)),
+                           y:Math.round((1-((lat-latMin)/(latMax-latMin)))*(H-1)) });
+
+  // seeded rng
+  const rng=(s)=>()=> (s=(s*1664525+1013904223)>>>0, s/4294967296);
+  const rand=rng((Date.now()^0x9e3779b9)>>>0);
+
+  // behavior factory
+  function makeBehavior(e){
+    // Assign by guild flavor (still randomized):
+    // Pearl-Weaver: orbit / slow drift
+    // Memory-Gardener: perch-and-twitch / pulse bursts
+    // Way-Finder: scout / migrate (straighter lines, occasional reheading)
+    const g=e.guild||"";
+    const roll=rand();
+
+    if(g==="Pearl-Weaver" && roll<0.6) return "orbit";
+    if(g==="Memory-Gardener" && roll<0.6) return "twitch";
+    if(g==="Way-Finder" && roll<0.6) return "scout";
+
+    // otherwise random among 5
+    return ["drift","orbit","twitch","scout","migrate"][Math.floor(rand()*5)];
+  }
+
+  function speedFor(style){
+    switch(style){
+      case "drift":   return 0.00018*(0.6+rand());    // slow
+      case "orbit":   return 0.00022*(0.8+rand());
+      case "twitch":  return 0.00012*(0.5+rand());    // very slow but bursts
+      case "scout":   return 0.00035*(0.8+rand());    // medium-fast
+      case "migrate": return 0.00055*(0.7+rand());    // fastest
+      default: return 0.00025;
+    }
+  }
+
+  // movers with style-specific state
+  const movers = data.filter(e=>e.coords && Number.isFinite(+e.coords[0]) && Number.isFinite(+e.coords[1]))
+    .map(e=>{
+      const style = makeBehavior(e);
+      const sp = speedFor(style);
+      const a = rand()*Math.PI*2;
+      const cx = (+e.coords[1]); // lon center (for orbit)
+      const cy = (+e.coords[0]); // lat center
+      return {
+        id:e.id, title:e.title||e.id, guild:e.guild||"", g:glyph(e.guild),
+        lat:+e.coords[0], lon:+e.coords[1],
+        vx:Math.cos(a)*sp, vy:Math.sin(a)*sp,
+        style, speed:sp,
+        // extra state
+        orbitR: 0.03*(0.5+rand()), orbitTheta:a,
+        rest: 0, // frames to pause (for twitch)
+        heading: a // for migrate/scout
+      };
+    });
+
+  const pre=$("#map"), toggle=$("#toggle"), fpsEl=$("#fps");
+  let running=true, lastTick=performance.now(), frames=0, lastFps=performance.now();
+
+  function clampBounce(m){
+    if(m.lat<latMin+PAD){ m.lat=latMin+PAD; m.vy=Math.abs(m.vy); }
+    if(m.lat>latMax-PAD){ m.lat=latMax-PAD; m.vy=-Math.abs(m.vy); }
+    if(m.lon<lonMin+PAD){ m.lon=lonMin+PAD; m.vx=Math.abs(m.vx); }
+    if(m.lon>lonMax-PAD){ m.lon=lonMax-PAD; m.vx=-Math.abs(m.vx); }
+  }
+
+  function step(dt){
+    const tScale = dt / TICK_MS;
+
+    movers.forEach(m=>{
+      switch(m.style){
+        case "drift": {
+          // gentle Brownian drift
+          m.vx += (rand()-0.5)*m.speed*0.15;
+          m.vy += (rand()-0.5)*m.speed*0.15;
+          m.lon += m.vx*tScale;
+          m.lat += m.vy*tScale;
+          clampBounce(m);
+          break;
+        }
+        case "orbit": {
+          // slow orbit around a local center (original position), with subtle radius wobble
+          m.orbitTheta += m.speed*25*tScale;
+          const r = m.orbitR*(0.9 + (rand()-0.5)*0.04);
+          m.lon += (Math.cos(m.orbitTheta)*r - (m.lon - m.vx)) * 0.08; // ease toward orbit path
+          m.lat += (Math.sin(m.orbitTheta)*r - (m.lat - m.vy)) * 0.08;
+          clampBounce(m);
+          break;
+        }
+        case "twitch": {
+          // mostly still, with sudden small bursts and micro jitter
+          if(m.rest>0){
+            m.rest -= 1*tScale;
+          } else if(rand()<0.08){ // burst
+            const a = rand()*Math.PI*2;
+            m.vx = Math.cos(a)*m.speed*6;
+            m.vy = Math.sin(a)*m.speed*6;
+            m.rest = 6 + Math.floor(rand()*10); // then rest
+          }
+          m.vx *= 0.9; m.vy *= 0.9; // dampen
+          m.lon += m.vx*tScale;
+          m.lat += m.vy*tScale;
+          clampBounce(m);
+          break;
+        }
+        case "scout": {
+          // straighter segments; occasionally retarget heading
+          if(rand()<0.02){ m.heading += (rand()-0.5)*0.8; }
+          m.vx = Math.cos(m.heading)*m.speed;
+          m.vy = Math.sin(m.heading)*m.speed;
+          m.lon += m.vx*tScale;
+          m.lat += m.vy*tScale;
+          clampBounce(m);
+          break;
+        }
+        case "migrate": {
+          // long bias in a direction with rare big turns
+          if(rand()<0.005){ m.heading += (rand()-0.5)*Math.PI; }
+          m.vx = Math.cos(m.heading)*m.speed*1.6;
+          m.vy = Math.sin(m.heading)*m.speed*1.6;
+          m.lon += m.vx*tScale;
+          m.lat += m.vy*tScale;
+          clampBounce(m);
+          break;
+        }
+      }
+    });
+
+    // broadcast live positions for the guide
+    localStorage.setItem("sornlai_positions",
+      JSON.stringify({ts:Date.now(), positions:movers.map(m=>({id:m.id, lat:m.lat, lon:m.lon}))})
+    );
+  }
+
+  function render(){
+    const grid=Array.from({length:H},()=>Array.from({length:W},()=>'.'));
+    for(let y=0;y<H;y+=6) for(let x=0;x<W;x++) grid[y][x]='-';
+    for(let x=0;x<W;x+=12) for(let y=0;y<H;y++) grid[y][x]='|';
+
+    const anchors=[];
+    movers.forEach(m=>{
+      const {x,y}=toXY(m.lat,m.lon);
+      grid[y][x]=m.g;
+      anchors.push({x,y,id:m.id,title:m.title,label:m.guild,selected:(m.id===selectedId)});
+    });
+
+    let out="";
+    for(let y=0;y<H;y+
