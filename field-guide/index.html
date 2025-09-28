@@ -2,18 +2,20 @@
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>White Forest Field Guide</title>
 <style>
-:root { color-scheme: dark; --fg:#e7e7e7; --bg:#0d0d0f; --muted:#9aa0a6; --accent:#8af; }
+:root { color-scheme: dark; --fg:#e7e7e7; --bg:#0d0d0f; --muted:#9aa0a6; --accent:#a88cff; --sel:#ff5f5f; }
 *{box-sizing:border-box} body{margin:0;font:16px/1.5 ui-sans-serif,system-ui;background:var(--bg);color:var(--fg)}
 a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
 .wrapper{max-width:980px;margin:auto;padding:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.card{background:#141418;border:1px solid #222;border-radius:12px;overflow:hidden}
+.card{background:#141418;border:1px solid #222;border-radius:12px;overflow:hidden; transition:border-color .12s, box-shadow .12s}
+.card.selected{ border-color: var(--sel); box-shadow:0 0 0 2px color-mix(in oklab, var(--sel) 50%, transparent) inset; }
 .card img{width:100%;display:block}
 .card .pad{padding:10px}
 .mono{font-family:ui-monospace,Consolas,monospace}
 input[type="search"]{width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a30;background:#121216;color:var(--fg);outline:none;margin:8px 0}
-.badge{font-size:12px;color:#cde;background:#20304a;padding:4px 8px;border-radius:999px;margin-right:6px}
-small{color:var(--muted)}
+.badge{font-size:12px;color:#cde;background:#20304a;padding:4px 8px;border-radius:999px;margin-right:6px;border:1px solid #2c3b5c}
+.badge.sel{ background:#3a1212; color:#ffd3d3; border-color:#ff5f5f }
+.coords{ color:var(--muted) }
 .btn{display:inline-block;padding:8px 12px;border:1px solid #2a2a30;border-radius:8px}
 #debug{white-space:pre-wrap;background:#120f15;border:1px solid #362447;border-radius:8px;padding:8px;margin-top:10px;color:#e6d9ff;display:none}
 </style>
@@ -28,73 +30,91 @@ small{color:var(--muted)}
 
 <script>
 (function(){
-  // tiny helpers (inline)
-  async function loadJSON(path){
-    const r = await fetch(path, {cache:"no-store"});
-    if(!r.ok) throw new Error("Failed to load "+path+" ("+r.status+")");
-    return r.json();
-  }
+  async function loadJSON(path){ const r=await fetch(path,{cache:"no-store"}); if(!r.ok) throw new Error("Load "+path+" ("+r.status+")"); return r.json(); }
   const $=(s,r=document)=>r.querySelector(s);
-  function h(tag, attrs={}, ...kids){
-    const el=document.createElement(tag);
-    for(const [k,v] of Object.entries(attrs)) (k==="class")? el.className=v : el.setAttribute(k,v);
-    for(const k of kids) el.append(k);
-    return el;
-  }
-  function getQueryParam(name){ return new URLSearchParams(location.search).get(name); }
-  function linkToMap(id){ return `../ascii-map/index.html?id=${encodeURIComponent(id)}`; }
-  function formatCoords([lat,lon]){ return `${(+lat).toFixed(2)}°, ${(+lon).toFixed(2)}°`; }
-  const dbg = $("#debug");
-  function logDebug(msg){ dbg.style.display="block"; dbg.textContent += msg+"\n"; console.log(msg); }
+  const h=(t,a={},...k)=>{ const e=document.createElement(t); for(const [x,v] of Object.entries(a)) (x==="class")? e.className=v : e.setAttribute(x,v); for(const c of k) e.append(c); return e; };
+  const getQ=(k)=>new URLSearchParams(location.search).get(k);
+  const linkToMap=(id)=>`../ascii-map/index.html?id=${encodeURIComponent(id)}`;
+  const fmt=(n)=>Number.isFinite(+n)?(+n).toFixed(2):"";
+  const fmtCoords=([lat,lon])=>`${fmt(lat)}°, ${fmt(lon)}°`;
+  const dbg=$("#debug"); const log=(m)=>{/*dbg.style.display="block"; dbg.textContent+=m+"\\n";*/ console.log(m);};
 
   (async function main(){
-    try{
-      logDebug("Field Guide booting…");
-      const dataUrl = "../data/entries.json";
-      logDebug("Fetching: "+dataUrl);
-      const data = await loadJSON(dataUrl);
-      logDebug("Loaded entries: "+data.length);
+    const data = await loadJSON("../data/entries.json");
+    const selectedFromURL = getQ("id");
+    const selectedFromStore = localStorage.getItem("sornlai_selected") || "";
+    let selectedId = selectedFromURL || selectedFromStore || "";
 
-      const q=$("#q"), cards=$("#cards"), count=$("#count");
-      const selectedId = getQueryParam("id");
+    const q=$("#q"), cards=$("#cards"), count=$("#count");
+    const coordRefs = new Map(); // id -> span element for coords
 
-      function match(entry, term){
-        if(!term) return true;
-        const hay=(entry.title+" "+entry.guild+" "+(entry.traits||[]).join(" ")+" "+(entry.lore||"")).toLowerCase();
-        return hay.includes(term.toLowerCase());
-      }
+    function render(list){
+      cards.replaceChildren();
+      list.forEach(e=>{
+        const isSel = e.id===selectedId;
+        const card=h("div",{class:`card${isSel?' selected':''}`, tabindex:"0", role:"article", "aria-labelledby":e.id});
+        if(e.img) card.append(h("img",{src:e.img,alt:e.title}));
+        const coordsSpan=h("span",{class:"coords", "data-id":e.id}, e.coords?fmtCoords(e.coords):"");
+        coordRefs.set(e.id, coordsSpan);
 
-      function render(list){
-        cards.replaceChildren();
-        list.forEach(e=>{
-          const card=h("div",{class:"card",tabindex:"0",role:"article","aria-labelledby":e.id});
-          if(e.img) card.append(h("img",{src:e.img,alt:e.title}));
-          const pad=h("div",{class:"pad"});
-          pad.append(
-            h("div",{},
-              h("span",{class:"badge"}, e.guild||""),
-              h("small",{}, e.coords?formatCoords(e.coords):"")
-            ),
-            h("h3",{id:e.id}, e.title||"(untitled)"),
-            h("p",{}, e.lore||""),
-            h("p",{}, h("small",{}, "Traits: "+((e.traits||[]).join(", ")||"—"))),
-            h("p",{}, h("a",{href:linkToMap(e.id),class:"btn"},"View on ASCII Map"))
-          );
-          if(e.id===selectedId) card.style.outline="2px solid var(--accent)";
-          card.append(pad);
-          cards.append(card);
-        });
-        count.textContent="("+list.length+")";
-      }
-
-      render(data);
-      q.addEventListener("input",()=>render(data.filter(e=>match(e,q.value))));
-      logDebug("Render complete.");
-    }catch(err){
-      logDebug("ERROR: "+(err && err.message ? err.message : err));
-      logDebug("Tip: open the JSON directly in this tab to confirm: ../data/entries.json");
+        const badgeClasses = "badge" + (isSel ? " sel" : "");
+        const pad=h("div",{class:"pad"});
+        pad.append(
+          h("div",{},
+            h("span",{class:badgeClasses}, e.guild||""),
+            h("small",{}, coordsSpan)
+          ),
+          h("h3",{id:e.id}, e.title||"(untitled)"),
+          h("p",{}, e.lore||""),
+          h("p",{}, h("small",{}, "Traits: "+((e.traits||[]).join(", ")||"—"))),
+          h("p",{}, h("a",{href:linkToMap(e.id),class:"btn"},"View on ASCII Map"))
+        );
+        card.append(pad);
+        cards.append(card);
+      });
+      count.textContent="("+list.length+")";
     }
-  })();
+
+    function match(entry, term){
+      if(!term) return true;
+      const hay=(entry.title+" "+entry.guild+" "+(entry.traits||[]).join(" ")+" "+(entry.lore||"")).toLowerCase();
+      return hay.includes(term.toLowerCase());
+    }
+
+    render(data);
+    q.addEventListener("input",()=>render(data.filter(e=>match(e,q.value))));
+
+    // --- live selection sync (if map writes it)
+    window.addEventListener("storage",(ev)=>{
+      if(ev.key==="sornlai_selected"){
+        selectedId = ev.newValue || "";
+        render(data.filter(e=>match(e,q.value)));
+      }
+      if(ev.key==="sornlai_positions"){
+        try{
+          const payload = JSON.parse(ev.newValue||"{}");
+          if(payload && Array.isArray(payload.positions)){
+            payload.positions.forEach(p=>{
+              const span = coordRefs.get(p.id);
+              if(span) span.textContent = `${fmt(p.lat)}°, ${fmt(p.lon)}°`;
+            });
+          }
+        }catch(e){ /* ignore */ }
+      }
+    });
+
+    // also pull any existing positions at load (in case map is already running)
+    try{
+      const priming = JSON.parse(localStorage.getItem("sornlai_positions")||"{}");
+      if(priming && Array.isArray(priming.positions)){
+        priming.positions.forEach(p=>{
+          const span = coordRefs.get(p.id);
+          if(span) span.textContent = `${fmt(p.lat)}°, ${fmt(p.lon)}°`;
+        });
+      }
+    }catch(e){}
+
+  })().catch(err=>{ log("ERROR: "+(err?.message||err)); });
 })();
 </script>
 </body></html>
