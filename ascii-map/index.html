@@ -2,23 +2,41 @@
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Sorn-Lai ASCII Map</title>
 <style>
-:root { color-scheme: dark; --fg:#e7e7e7; --bg:#0d0d0f; --muted:#9aa0a6; --accent:#8af; }
+:root { color-scheme: dark; --fg:#e7e7e7; --bg:#0d0d0f; --muted:#9aa0a6; --accent:#a88cff; --grid:#222; }
 *{box-sizing:border-box} body{margin:0;font:16px/1.5 ui-monospace,Consolas,monospace;background:var(--bg);color:var(--fg)}
 a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
 .wrapper{max-width:980px;margin:auto;padding:16px}
 .btn{display:inline-block;padding:8px 12px;border:1px solid #2a2a30;border-radius:8px}
 .axis{display:flex;justify-content:space-between}
-pre.map{white-space:pre; font:14px/1.05 ui-monospace,Consolas,monospace; background:#0a0a0c; padding:10px; border-radius:12px; border:1px solid #222; overflow:auto; max-height:70vh}
+pre.map{white-space:pre; font:14px/1.05 ui-monospace,Consolas,monospace; background:#0a0a0c; padding:10px; border-radius:12px; border:1px solid var(--grid); overflow:auto; max-height:70vh}
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.legend .key{display:flex;align-items:center;gap:6px}
+.legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;outline:1px solid #444}
+a.sel{ color:#ff5f5f !important; font-weight:700 } /* selected glyph = RED */
+.dim{ color:#8aa; }
 #debug{white-space:pre-wrap;background:#120f15;border:1px solid #362447;border-radius:8px;padding:8px;margin-top:10px;color:#e6d9ff;display:none}
+.controls{display:flex;gap:8px;align-items:center;margin:6px 0}
 </style>
 </head><body>
 <div class="wrapper">
   <a class="btn" href="../index.html">← Micros Hub</a>
   <h1>ASCII Map <small id="subtitle"></small></h1>
-  <div class="axis"><span id="lonMin"></span><span id="lonMax"></span></div>
+
+  <div class="legend">
+    <span class="key"><span class="sw" style="background:#a88cff"></span><small>Creatures (linked)</small></span>
+    <span class="key"><span class="sw" style="background:#ff5f5f"></span><small>Selected</small></span>
+    <span class="key"><span class="sw" style="background:#20304a"></span><small>Background</small></span>
+  </div>
+
+  <div class="axis"><span id="lonMin" class="dim"></span><span id="lonMax" class="dim"></span></div>
   <pre class="map" id="map" role="img" aria-label="ASCII map of Sorn-Lai"></pre>
-  <div class="axis"><span id="latMin"></span><span id="latMax"></span></div>
-  <p><small>Tip: click a glyph to open its Field Guide entry.</small></p>
+  <div class="axis"><span id="latMin" class="dim"></span><span id="latMax" class="dim"></span></div>
+
+  <div class="controls">
+    <button id="toggle" class="btn" type="button">⏸️ Pause</button>
+    <small id="fps" class="dim"></small>
+  </div>
+
   <pre id="debug" aria-live="polite"></pre>
 </div>
 
@@ -30,80 +48,137 @@ pre.map{white-space:pre; font:14px/1.05 ui-monospace,Consolas,monospace; backgro
     return r.json();
   }
   const $=(s,r=document)=>r.querySelector(s);
-  function getQueryParam(name){ return new URLSearchParams(location.search).get(name); }
   function linkToGuide(id){ return `../field-guide/index.html?id=${encodeURIComponent(id)}`; }
+  function getQueryParam(name){ return new URLSearchParams(location.search).get(name); }
   const dbg = $("#debug");
-  function logDebug(msg){ dbg.style.display="block"; dbg.textContent += msg+"\n"; console.log(msg); }
+  function logDebug(msg){ /* show if needed */ /* dbg.style.display="block"; dbg.textContent += msg+"\n";*/ console.log(msg); }
 
   (async function main(){
-    try{
-      logDebug("ASCII Map booting…");
-      const dataUrl = "../data/entries.json";
-      logDebug("Fetching: "+dataUrl);
-      const data = await loadJSON(dataUrl);
-      logDebug("Loaded entries: "+data.length);
+    const data = await loadJSON("../data/entries.json");
+    const selectedId = getQueryParam("id");
+    const W = 72, H = 24;         // grid size
+    const TICK_MS = 200;          // ~5 fps
+    const SPEED = 0.00035;        // deg latitude/longitude per tick (very small)
+    const BOUNCE_PAD = 0.02;      // keep inside bounds
 
-      const selectedId = getQueryParam("id");
-      const W = 72, H = 24;
+    // --- bounds from data
+    const lats=data.map(e=>+e.coords?.[0]).filter(Number.isFinite);
+    const lons=data.map(e=>+e.coords?.[1]).filter(Number.isFinite);
+    const latMin=Math.min(...lats)-0.05, latMax=Math.max(...lats)+0.05;
+    const lonMin=Math.min(...lons)-0.05, lonMax=Math.max(...lons)+0.05;
 
-      if(!Array.isArray(data) || data.length===0){
-        logDebug("No data rows found. Check entries.json.");
-        return;
-      }
+    $("#lonMin").textContent = `${lonMin.toFixed(2)}°`;
+    $("#lonMax").textContent = `${lonMax.toFixed(2)}°`;
+    $("#latMin").textContent = `${latMin.toFixed(2)}°`;
+    $("#latMax").textContent = `${latMax.toFixed(2)}°`;
+    $("#subtitle").textContent = `lat ${latMin.toFixed(2)}→${latMax.toFixed(2)} | lon ${lonMin.toFixed(2)}→${lonMax.toFixed(2)}`;
 
-      // bounds
-      const lats=data.map(e=>+e.coords?.[0]).filter(Number.isFinite);
-      const lons=data.map(e=>+e.coords?.[1]).filter(Number.isFinite);
-      const latMin=Math.min(...lats)-0.05, latMax=Math.max(...lats)+0.05;
-      const lonMin=Math.min(...lons)-0.05, lonMax=Math.max(...lons)+0.05;
+    // --- glyphs
+    const glyph=(g)=>({"Pearl-Weaver":"◊","Memory-Gardener":"*","Way-Finder":"o"}[g]||"+");
 
-      $("#lonMin").textContent = `${lonMin.toFixed(2)}°`;
-      $("#lonMax").textContent = `${lonMax.toFixed(2)}°`;
-      $("#latMin").textContent = `${latMin.toFixed(2)}°`;
-      $("#latMax").textContent = `${latMax.toFixed(2)}°`;
-      $("#subtitle").textContent = `lat ${latMin.toFixed(2)}→${latMax.toFixed(2)} | lon ${lonMin.toFixed(2)}→${lonMax.toFixed(2)}`;
+    // --- projection
+    function toXY(lat,lon){
+      const x = Math.round(((lon - lonMin)/(lonMax - lonMin))*(W-1));
+      const y = Math.round((1-((lat - latMin)/(latMax - latMin)))*(H-1));
+      return {x,y};
+    }
 
+    // --- runtime state: copy positions + random velocities
+    const rng = (seed)=>()=> (seed = (seed*1664525 + 1013904223) % 4294967296)/4294967296;
+    const rand = rng( (Date.now() ^ 0x9e3779b9) >>> 0 );
+
+    const movers = data
+      .filter(e=>Array.isArray(e.coords) && Number.isFinite(+e.coords[0]) && Number.isFinite(+e.coords[1]))
+      .map(e=>{
+        const angle = rand()*Math.PI*2;
+        const speed = SPEED*(0.5 + rand());  // slight variation
+        return {
+          id:e.id, title:e.title||e.id, guild:e.guild||"", g:glyph(e.guild),
+          lat:+e.coords[0], lon:+e.coords[1],
+          vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed
+        };
+      });
+
+    // keep selected visible as RED; it still moves (can set to static by zeroing vx/vy)
+    // const sel = movers.find(m=>m.id===selectedId); if(sel){ sel.vx=0; sel.vy=0; }
+
+    const pre = $("#map");
+    const toggleBtn = $("#toggle");
+    const fpsEl = $("#fps");
+    let running = true, lastTick = performance.now(), frameCount=0, lastFpsTime=performance.now();
+
+    function step(dt){
+      // update positions (random walk + bounce)
+      movers.forEach(m=>{
+        // small drift in heading to feel organic
+        const jitter = (rand()-0.5)*SPEED*0.2;
+        m.vx += jitter;
+        m.vy += jitter;
+        m.lat += m.vy * (dt / TICK_MS);
+        m.lon += m.vx * (dt / TICK_MS);
+
+        // bounce on bounds
+        if(m.lat < latMin+BOUNCE_PAD){ m.lat = latMin+BOUNCE_PAD; m.vy = Math.abs(m.vy); }
+        if(m.lat > latMax-BOUNCE_PAD){ m.lat = latMax-BOUNCE_PAD; m.vy = -Math.abs(m.vy); }
+        if(m.lon < lonMin+BOUNCE_PAD){ m.lon = lonMin+BOUNCE_PAD; m.vx = Math.abs(m.vx); }
+        if(m.lon > lonMax-BOUNCE_PAD){ m.lon = lonMax-BOUNCE_PAD; m.vx = -Math.abs(m.vx); }
+      });
+    }
+
+    function render(){
       // base grid
       const grid = Array.from({length:H}, _=>Array.from({length:W}, _=>'.'));
       for(let y=0;y<H;y+=6) for(let x=0;x<W;x++) grid[y][x]='-';
       for(let x=0;x<W;x+=12) for(let y=0;y<H;y++) grid[y][x]='|';
 
-      const glyph=(g)=>({"Pearl-Weaver":"◊","Memory-Gardener":"*","Way-Finder":"o"}[g]||"+");
-      function toXY([lat,lon]){
-        const x = Math.round(((lon - lonMin)/(lonMax - lonMin))*(W-1));
-        const y = Math.round((1-((lat - latMin)/(latMax - latMin)))*(H-1));
-        return {x,y};
-      }
-
+      // anchor list
       const anchors=[];
-      data.forEach(e=>{
-        if(!e.coords || !Number.isFinite(+e.coords[0]) || !Number.isFinite(+e.coords[1])) return;
-        const {x,y}=toXY([+e.coords[0],+e.coords[1]]);
-        grid[y][x] = (e.id===selectedId) ? glyph(e.guild).toUpperCase() : glyph(e.guild);
-        anchors.push({x,y,id:e.id,title:e.title||e.id,label:e.guild||""});
+      movers.forEach(m=>{
+        const {x,y} = toXY(m.lat, m.lon);
+        grid[y][x] = m.g;
+        anchors.push({x,y,id:m.id,title:m.title,label:m.guild, selected:(m.id===selectedId)});
       });
 
-      const pre=$("#map");
+      // string with tokens for anchors
       let out="";
       for(let y=0;y<H;y++){
         for(let x=0;x<W;x++){
-          const mark=anchors.find(a=>a.x===x&&a.y===y);
-          out += mark ? `\uFFFF${x},${y}\uFFFF` : grid[y][x];
+          const a=anchors.find(a=>a.x===x&&a.y===y);
+          out += a ? `\uFFFF${x},${y}\uFFFF` : grid[y][x];
         }
         out+="\n";
       }
-      pre.textContent=out;
+      pre.textContent = out;
       const html = pre.textContent.replace(/\uFFFF(\d+),(\d+)\uFFFF/g,(m,xx,yy)=>{
         const a = anchors.find(a=>a.x==xx && a.y==yy);
-        return `<a href="${linkToGuide(a.id)}" title="${a.title} (${a.label})">${grid[yy][xx]}</a>`;
+        const cls = a.selected ? "sel" : "";
+        return `<a class="${cls}" href="${linkToGuide(a.id)}" title="${a.title} (${a.label})">${grid[yy][xx]}</a>`;
       });
-      pre.innerHTML=html;
-      logDebug("Map render complete with "+anchors.length+" anchors.");
-    }catch(err){
-      logDebug("ERROR: "+(err && err.message ? err.message : err));
-      logDebug("Tip: open the JSON directly: ../data/entries.json");
+      pre.innerHTML = html;
     }
-  })();
+
+    // tick loop (coarse timer to keep CPU low)
+    function loop(now){
+      if(!running){ requestAnimationFrame(loop); return; }
+      const dt = now - lastTick;
+      if(dt >= TICK_MS){ lastTick = now; step(dt); render(); frameCount++; }
+      // fps indicator (approx updates/sec)
+      if(now - lastFpsTime >= 1000){
+        fpsEl.textContent = `${frameCount} updates/sec`;
+        frameCount = 0; lastFpsTime = now;
+      }
+      requestAnimationFrame(loop);
+    }
+    render();
+    requestAnimationFrame(loop);
+
+    // controls
+    toggleBtn.addEventListener("click",()=>{
+      running = !running;
+      toggleBtn.textContent = running ? "⏸️ Pause" : "▶️ Play";
+    });
+
+  })().catch(err=>{ logDebug("ERROR: "+(err?.message||err)); });
 })();
 </script>
 </body></html>
