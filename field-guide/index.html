@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>White Forest Field Guide</title>
+<link rel="stylesheet" href="../styles/site.css">
+<script src="../js/utils.js"></script>
+</head><body>
+<div class="wrapper">
+  <a class="btn" href="../index.html">← Micros Hub</a>
+  <h1>White Forest Field Guide <small class="mono" id="count"></small></h1>
+  <input id="q" type="search" placeholder="Search title, guild, trait…">
+  <div id="cards" class="grid" aria-live="polite"></div>
+</div>
+
+<script>
+(async function(){
+  const data = await loadJSON("../data/entries.json");
+  const q = $("#q"), cards = $("#cards"), count = $("#count");
+  const selectedId = getQueryParam("id"); // highlight if linked from map
+
+  function match(entry, term){
+    if(!term) return true;
+    const hay = (entry.title+" "+entry.guild+" "+entry.traits.join(" ")+" "+entry.lore).toLowerCase();
+    return hay.includes(term.toLowerCase());
+  }
+
+  function render(list){
+    cards.replaceChildren();
+    list.forEach(e=>{
+      const card = h("div", {class:"card", tabindex:"0", role:"article", "aria-labelledby":e.id});
+      if(e.img) card.append(h("img",{src:e.img,alt:e.title}));
+      const pad = h("div",{class:"pad"});
+      pad.append(
+        h("div", {class:"legend"},
+          h("span",{class:"badge"}, e.guild),
+          h("small",{}, formatCoords(e.coords))
+        ),
+        h("h3",{id:e.id}, e.title),
+        h("p",{}, e.lore),
+        h("p",{},
+          h("small",{}, "Traits: "+e.traits.join(", "))
+        ),
+        h("p",{},
+          h("a",{href:linkToMap(e.id), class:"btn"},"View on ASCII Map")
+        )
+      );
+      if(e.id===selectedId) card.style.outline = "2px solid var(--accent)";
+      card.append(pad);
+      cards.append(card);
+    });
+    count.textContent = `(${list.length})`;
+  }
+
+  render(data);
+  q.addEventListener("input",()=>render(data.filter(e=>match(e,q.value))));
+})();
+</script>
+</body></html>

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "sha-wanderer",
+    "title": "Wandering Sha (Juvenile)",
+    "guild": "Memory-Gardener",
+    "coords": [12.3, 98.5],
+    "traits": ["photosynthetic", "reactive-resin"],
+    "lore": "Shell resonates to canopy pulses; follows biolume threads along creek beds.",
+    "img": "https://placehold.co/320x200/png?text=Sha"
+  },
+  {
+    "id": "pearl-scribe",
+    "title": "Pearl Scribe",
+    "guild": "Pearl-Weaver",
+    "coords": [12.7, 98.1],
+    "traits": ["calciferous bark", "signal-etching"],
+    "lore": "Leaves exude a chalky lacquer; records canopy messages as micro-runes.",
+    "img": "https://placehold.co/320x200/png?text=Pearl+Scribe"
+  },
+  {
+    "id": "hushed-mote",
+    "title": "Hushed Mote",
+    "guild": "Way-Finder",
+    "coords": [12.5, 98.3],
+    "traits": ["bioluminescent", "pheromone-guided"],
+    "lore": "Faint light glows brighter near contested boundaries; used by scouts at dusk.",
+    "img": "https://placehold.co/320x200/png?text=Hushed+Mote"
+  }
+]

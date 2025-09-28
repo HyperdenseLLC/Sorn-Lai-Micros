@@ -1,0 +1,98 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sorn-Lai ASCII Map</title>
+<link rel="stylesheet" href="../styles/site.css">
+<script src="../js/utils.js"></script>
+<style>
+pre.map{white-space:pre; font:14px/1.05 ui-monospace,Consolas,monospace; background:#0a0a0c; padding:10px; border-radius:12px; border:1px solid #222; overflow:auto; max-height:70vh}
+.rownums{display:flex; gap:8px; align-items:center}
+.axis{display:flex; justify-content:space-between}
+</style>
+</head><body>
+<div class="wrapper">
+  <a class="btn" href="../index.html">← Micros Hub</a>
+  <h1>ASCII Map <small id="subtitle" class="mono"></small></h1>
+
+  <div class="legend">
+    <span class="key"><span class="swatch" style="background:#334;"></span><small>Background</small></span>
+    <span class="key"><span class="swatch" style="background:#222;"></span><small>Grid</small></span>
+    <span class="key"><span class="swatch" style="background:#20304a"></span><small>Guild glyphs</small></span>
+  </div>
+
+  <div class="axis mono"><span id="lonMin"></span><span id="lonMax"></span></div>
+  <pre class="map" id="map" role="img" aria-label="ASCII map of Sorn-Lai"></pre>
+  <div class="axis mono"><span id="latMin"></span><span id="latMax"></span></div>
+
+  <p><small>Tip: click a glyph to open its Field Guide entry.</small></p>
+</div>
+
+<script>
+(async function(){
+  const data = await loadJSON("../data/entries.json");
+  const selectedId = getQueryParam("id");
+  const W = 72, H = 24;                // grid size (tweakable)
+  // derive bounds from data with a little padding
+  const lats = data.map(e=>e.coords[0]), lons = data.map(e=>e.coords[1]);
+  const latMin = Math.min(...lats)-0.05, latMax = Math.max(...lats)+0.05;
+  const lonMin = Math.min(...lons)-0.05, lonMax = Math.max(...lons)+0.05;
+
+  $("#lonMin").textContent = `${lonMin.toFixed(2)}°`;
+  $("#lonMax").textContent = `${lonMax.toFixed(2)}°`;
+  $("#latMin").textContent = `${latMin.toFixed(2)}°`;
+  $("#latMax").textContent = `${latMax.toFixed(2)}°`;
+  $("#subtitle").textContent = `lat ${latMin.toFixed(2)}°→${latMax.toFixed(2)}°  lon ${lonMin.toFixed(2)}°→${lonMax.toFixed(2)}°`;
+
+  // base grid
+  const grid = Array.from({length:H}, _=>Array.from({length:W}, _=>'.'));
+
+  // light grid lines
+  for(let y=0;y<H;y+=6) for(let x=0;x<W;x++) grid[y][x] = '-';
+  for(let x=0;x<W;x+=12) for(let y=0;y<H;y++) grid[y][x] = '|';
+
+  // map guilds to glyphs
+  const glyph = (guild)=>({
+    "Pearl-Weaver":"◊",
+    "Memory-Gardener":"*",
+    "Way-Finder":"o"
+  }[guild] || "+");
+
+  // project lat/lon to grid
+  function toXY([lat,lon]){
+    const x = Math.round(( (lon - lonMin) / (lonMax - lonMin) ) * (W-1));
+    const y = Math.round(( 1 - (lat - latMin) / (latMax - latMin) ) * (H-1)); // invert y
+    return {x,y};
+  }
+
+  // place entries
+  const anchors = []; // clickable spans to attach links after render
+  data.forEach(e=>{
+    const {x,y} = toXY(e.coords);
+    const g = glyph(e.guild);
+    grid[y][x] = (e.id===selectedId) ? g.toUpperCase() : g; // simple highlight
+    anchors.push({x,y,id:e.id,title:e.title});
+  });
+
+  // render to HTML with clickable <a> overlay technique
+  const pre = $("#map");
+  // build one string with span markers we can replace
+  let out = "";
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      // mark anchor spots with a token like [[x,y]]
+      const mark = anchors.find(a=>a.x===x && a.y===y);
+      out += mark ? `\uFFFF${x},${y}\uFFFF` : grid[y][x];
+    }
+    out += "\n";
+  }
+  // escape & then replace tokens with <a>
+  pre.textContent = out; // first, plain text
+  // now convert tokens into links by walking child text and replacing
+  const html = pre.textContent.replace(/\uFFFF(\d+),(\d+)\uFFFF/g,(m,xx,yy)=>{
+    const a = anchors.find(a=>a.x==xx && a.y==yy);
+    const label = data.find(d=>d.id===a.id).guild;
+    return `<a href="${linkToGuide(a.id)}" title="${a.title} (${label})">${grid[yy][xx]}</a>`;
+  });
+  pre.innerHTML = html;
+})();
+</script>
+</body></html>
