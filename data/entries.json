@@ -3,27 +3,165 @@
     "id": "sha-wanderer",
     "title": "Wandering Sha (Juvenile)",
     "guild": "Memory-Gardener",
-    "coords": [12.3, 98.5],
+    "coords": [12.30, 98.50],
     "traits": ["photosynthetic", "reactive-resin"],
     "lore": "Shell resonates to canopy pulses; follows biolume threads along creek beds.",
-    "img": "https://placehold.co/320x200/png?text=Sha"
+    "img": "https://placehold.co/480x320/png?text=Wandering+Sha"
   },
   {
     "id": "pearl-scribe",
     "title": "Pearl Scribe",
     "guild": "Pearl-Weaver",
-    "coords": [12.7, 98.1],
+    "coords": [12.72, 98.10],
     "traits": ["calciferous bark", "signal-etching"],
-    "lore": "Leaves exude a chalky lacquer; records canopy messages as micro-runes.",
-    "img": "https://placehold.co/320x200/png?text=Pearl+Scribe"
+    "lore": "Exudes chalky lacquer that hardens into micro-runes. Pearl-Weavers consult these during night audits.",
+    "img": "https://placehold.co/480x320/png?text=Pearl+Scribe"
   },
   {
     "id": "hushed-mote",
     "title": "Hushed Mote",
     "guild": "Way-Finder",
-    "coords": [12.5, 98.3],
+    "coords": [12.52, 98.34],
     "traits": ["bioluminescent", "pheromone-guided"],
-    "lore": "Faint light glows brighter near contested boundaries; used by scouts at dusk.",
-    "img": "https://placehold.co/320x200/png?text=Hushed+Mote"
+    "lore": "Glow intensifies near contested boundaries. Scouts release motes at dusk to test safe lanes.",
+    "img": "https://placehold.co/480x320/png?text=Hushed+Mote"
+  },
+
+  {
+    "id": "bark-harp",
+    "title": "Bark Harp",
+    "guild": "Pearl-Weaver",
+    "coords": [12.65, 98.28],
+    "traits": ["tensile fibers", "wind-tuned"],
+    "lore": "Tree-lace stretches across gaps like instrument strings; storms record themselves as grooves.",
+    "img": "https://placehold.co/480x320/png?text=Bark+Harp"
+  },
+  {
+    "id": "vein-lantern",
+    "title": "Vein Lantern",
+    "guild": "Memory-Gardener",
+    "coords": [12.44, 98.22],
+    "traits": ["hemolight", "slow-pulsing"],
+    "lore": "Leaf veins glow when nearby organisms recall strong memories; used to time ceremonial retellings.",
+    "img": "https://placehold.co/480x320/png?text=Vein+Lantern"
+  },
+  {
+    "id": "lattice-wasp",
+    "title": "Lattice Wasp",
+    "guild": "Way-Finder",
+    "coords": [12.58, 98.61],
+    "traits": ["paper combs", "route-marking"],
+    "lore": "Spits cellulose threads that line safe corridors. Colonies migrate if human voices are too flat.",
+    "img": "https://placehold.co/480x320/png?text=Lattice+Wasp"
+  },
+  {
+    "id": "murmur-cone",
+    "title": "Murmur Cone",
+    "guild": "Pearl-Weaver",
+    "coords": [12.49, 98.17],
+    "traits": ["resonant husk", "echo imprint"],
+    "lore": "Cones retain a whisper of the last sentence spoken nearby. Archivists crack them like safe locks.",
+    "img": "https://placehold.co/480x320/png?text=Murmur+Cone"
+  },
+  {
+    "id": "dew-scribe-crab",
+    "title": "Dew-Scribe Crab",
+    "guild": "Memory-Gardener",
+    "coords": [12.33, 98.41],
+    "traits": ["capillary script", "nocturnal"],
+    "lore": "Writes in dew across white bark at dawn; text evaporates by noon leaving only reader’s recollection.",
+    "img": "https://placehold.co/480x320/png?text=Dew-Scribe+Crab"
+  },
+  {
+    "id": "thread-otter",
+    "title": "Thread Otter",
+    "guild": "Way-Finder",
+    "coords": [12.37, 98.56],
+    "traits": ["river courier", "knot-language"],
+    "lore": "Wears a belt of knotted reeds; ferries news between downstream camps after monsoon breaks.",
+    "img": "https://placehold.co/480x320/png?text=Thread+Otter"
+  },
+  {
+    "id": "pearl-barnacle",
+    "title": "Pearl Barnacle",
+    "guild": "Pearl-Weaver",
+    "coords": [12.73, 98.47],
+    "traits": ["calcite plates", "slow accretion"],
+    "lore": "Colonizes abandoned tools, layering them into ceremonial anchors to prevent drift in narratives.",
+    "img": "https://placehold.co/480x320/png?text=Pearl+Barnacle"
+  },
+  {
+    "id": "sighing-reed",
+    "title": "Sighing Reed",
+    "guild": "Memory-Gardener",
+    "coords": [12.40, 98.12],
+    "traits": ["pressure-vocal", "scent memory"],
+    "lore": "Exhales faint chords when pressed; notes vary with the handler’s remembered losses.",
+    "img": "https://placehold.co/480x320/png?text=Sighing+Reed"
+  },
+  {
+    "id": "trail-prism",
+    "title": "Trail Prism",
+    "guild": "Way-Finder",
+    "coords": [12.61, 98.20],
+    "traits": ["light-splitting", "orientation lock"],
+    "lore": "Tiny crystals that split canopy light into arrows; point to last known safe bivouac.",
+    "img": "https://placehold.co/480x320/png?text=Trail+Prism"
+  },
+
+  {
+    "id": "hollow-choir",
+    "title": "Hollow Choir",
+    "guild": "Pearl-Weaver",
+    "coords": [12.51, 98.30],
+    "traits": ["cavity chimes", "ritual"],
+    "lore": "Clustered trunks tuned to fourths and fifths; evening winds produce liturgical intervals.",
+    "img": "https://placehold.co/480x320/png?text=Hollow+Choir"
+  },
+  {
+    "id": "mendleaf",
+    "title": "Mendleaf",
+    "guild": "Memory-Gardener",
+    "coords": [12.47, 98.44],
+    "traits": ["scar-knitting", "symbiotic"],
+    "lore": "Fuses torn foliage overnight; in people it works only if the story of the wound is told first.",
+    "img": "https://placehold.co/480x320/png?text=Mendleaf"
+  },
+  {
+    "id": "waystone-pulse",
+    "title": "Waystone Pulse",
+    "guild": "Way-Finder",
+    "coords": [12.66, 98.36],
+    "traits": ["ultra-low beat", "range marker"],
+    "lore": "Buried stones throb once per minute. Travelers count pulses to estimate distance in the fog.",
+    "img": "https://placehold.co/480x320/png?text=Waystone+Pulse"
+  },
+
+  {
+    "id": "contested-copse-alpha",
+    "title": "Contested Copse (Alpha)",
+    "guild": "Pearl-Weaver",
+    "coords": [12.55, 98.38],
+    "traits": ["shared canopy", "etch-over"],
+    "lore": "Pearl etchings overlap gardener grafts; both patterns persist, forming ambiguous readouts.",
+    "img": "https://placehold.co/480x320/png?text=Contested+Copse+A"
+  },
+  {
+    "id": "contested-copse-beta",
+    "title": "Contested Copse (Beta)",
+    "guild": "Memory-Gardener",
+    "coords": [12.56, 98.39],
+    "traits": ["counter-graft", "recall bloom"],
+    "lore": "Gardener buds hijack pearl flows for a season, then yield; locals schedule disputes to the bloom.",
+    "img": "https://placehold.co/480x320/png?text=Contested+Copse+B"
+  },
+  {
+    "id": "fog-needle",
+    "title": "Fog Needle",
+    "guild": "Way-Finder",
+    "coords": [12.29, 98.26],
+    "traits": ["dew capture", "line-casting"],
+    "lore": "Tensioned silk gathers fog into threads visible from far trails; points to water and bivouacs.",
+    "img": "https://placehold.co/480x320/png?text=Fog+Needle"
   }
 ]
